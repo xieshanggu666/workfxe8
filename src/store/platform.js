@@ -52,6 +52,15 @@ export const RISK_STATUS = {
   revoked: { label: '已撤销', tone: 'bad' }
 }
 
+// 发货单状态文案与样式标记
+// pending_address 待填地址 → to_ship 待发货（运营接单）→ shipped 已发货/待收货 → received 已收货
+export const SHIP_STATUS = {
+  pending_address: { label: '待填地址', tone: 'warn' },
+  to_ship: { label: '待发货', tone: 'info' },
+  shipped: { label: '已发货', tone: 'ok' },
+  received: { label: '已收货', tone: 'muted' }
+}
+
 let seq = 0
 const genId = (p) => `${p}-${Date.now()}-${seq++}`
 
@@ -64,6 +73,7 @@ export const usePlatformStore = defineStore('platform', {
     tasks: [],                  // 深拷贝（含完成状态）
     goods: [],                  // 商城商品（响应式库存 + 预占）
     records: [],                // 抽奖 / 兑换业务记录（含 frozen/released/revoked 状态）
+    shipments: [],              // 实物发货单（append-only）：中奖/兑换实物且有效（正常/风控放行）后生成，走 填地址→发货→收货 流程
     pointRecords: [],           // 积分流水（append-only，财务留痕不裁剪）
     taskClaims: [],             // 任务领奖台账（append-only）：{ taskId, bizDate 归属业务日, grantDate 实际发放日, reward, flowId }，发奖与补偿的统一判重依据
     riskOrders: [],             // 风控审核单
@@ -180,7 +190,12 @@ export const usePlatformStore = defineStore('platform', {
         reconCompensated: state.pointRecords
           .filter((p) => p.kind === 'recon-comp' || p.kind === 'task-comp')
           .reduce((s, p) => s + p.delta, 0),
-        stockAdjCount: state.stockAdjustments.length
+        stockAdjCount: state.stockAdjustments.length,
+        // 实物发货看板：待填地址 / 待运营发货 / 已发货待收货 / 已完成
+        shipPendingAddress: state.shipments.filter((o) => o.status === 'pending_address').length,
+        shipToShip: state.shipments.filter((o) => o.status === 'to_ship').length,
+        shipShipped: state.shipments.filter((o) => o.status === 'shipped').length,
+        shipReceived: state.shipments.filter((o) => o.status === 'received').length
       }
     },
     // 某业务日的对账差异单（一业务日一单，重复执行更新同单并保留痕迹）
@@ -198,6 +213,36 @@ export const usePlatformStore = defineStore('platform', {
       s.reconBills.forEach((b) => dates.add(b.date))
       dates.add(s.todayDate)
       return [...dates].sort().reverse()
+    },
+    // 业务记录对应的实物发货单（一条有效实物业务记录至多一张发货单）
+    shipmentOfRecord: (s) => (recordId) => s.shipments.find((o) => o.recordId === recordId) || null,
+    // 当前用户的发货单（最新在前）
+    myShipments(s) {
+      return [...s.shipments]
+        .filter((o) => o.userId === s.user.id)
+        .sort((a, b) => b.ts - a.ts)
+    },
+    // 运营待接单发货数（地址已填、尚未发货）——运营 Tab 角标
+    pendingShipCount(s) {
+      return s.shipments.filter((o) => o.status === 'to_ship').length
+    },
+    // 用户待办数（待填地址 + 已发货待确认收货）——用户 Tab 角标
+    myShipTodoCount(s) {
+      return s.shipments.filter(
+        (o) => o.userId === s.user.id &&
+          (o.status === 'pending_address' || o.status === 'shipped')
+      ).length
+    },
+    // 发货看板统计（按状态 + 总量）
+    shipmentStats(s) {
+      const list = s.shipments
+      return {
+        total: list.length,
+        pendingAddress: list.filter((o) => o.status === 'pending_address').length,
+        toShip: list.filter((o) => o.status === 'to_ship').length,
+        shipped: list.filter((o) => o.status === 'shipped').length,
+        received: list.filter((o) => o.status === 'received').length
+      }
     }
   },
 
@@ -280,15 +325,16 @@ export const usePlatformStore = defineStore('platform', {
       const appendFlow = extra.bizDate && extra.bizDate !== (extra.date || this.todayDate)
       const isChainTail = kind === 'recon-comp' || kind === 'task-comp' ||
         (appendFlow && (kind === 'reward' || kind === 'release'))
-      const latestTs = isChainTail
-        ? this.pointRecords.reduce((mx, p) => Math.max(mx, p.ts || 0), Date.now())
-        : 0
+      // 时间戳严格单调递增：即使同一毫秒内连续多笔（脚本批量/连续点击），按 ts 重放顺序也与入账顺序一致，
+      // 避免相同时间戳排序不稳定导致余额快照链错位
+      const latestTs = this.pointRecords.reduce((mx, p) => Math.max(mx, p.ts || 0), 0)
+      const chainTs = isChainTail ? latestTs + 1 : Math.max(Date.now(), latestTs + 1)
       const rec = {
         id: genId('pr'),
         date: extra.date || this.todayDate,
         bizDate: extra.bizDate || extra.date || this.todayDate,
         time: extra.time || nowTime(),
-        ts: extra.ts || (isChainTail ? latestTs + 1 : Date.now()),
+        ts: extra.ts || chainTs,
         delta,
         // 余额快照：调用方先改 this.points 再记账，快照即记账后余额
         balance: extra.balance !== undefined ? extra.balance : this.points,
@@ -320,7 +366,11 @@ export const usePlatformStore = defineStore('platform', {
           'recon-run': '对账执行',
           'recon-review': '对账复核',
           'recon-comp': '对账补偿',
-          'recon-inject': '差异注入'
+          'recon-inject': '差异注入',
+          'ship-create': '生成发货单',
+          'ship-address': '填写收货信息',
+          'ship-send': '运营发货',
+          'ship-receive': '确认收货'
         }[action] || action,
         orderId: orderId || '',
         operator: this.role === 'operator' ? `运营(${this.user.name})` : this.user.name,
@@ -486,7 +536,10 @@ export const usePlatformStore = defineStore('platform', {
       }
       this.records.unshift(rec)
       if (pointDelta) this.addPointRecord(pointDelta, `抽奖获得：${prize.name}`, 'reward')
-      if (prize.rarity === 'legendary') this.showToast(`🎉 传说大奖！${prize.name}`, 'success')
+      // 实物奖品：生成发货单，引导用户填写收货信息（积分奖品/谢谢参与不涉及物流）
+      const ship = this.createShipment(rec)
+      if (ship) this.showToast(`🎉 获得实物：${prize.name}，请前往「物流发货」填写收货信息`, 'success')
+      else if (prize.rarity === 'legendary') this.showToast(`🎉 传说大奖！${prize.name}`, 'success')
       else this.showToast(`获得：${prize.name}`, 'success')
       // 真实参与记录落账后，按归属业务日自动结算抽奖任务（达标即发奖，幂等防重）
       this.settleDrawTasks(rec.date)
@@ -599,7 +652,10 @@ export const usePlatformStore = defineStore('platform', {
         icon: g.icon
       }
       this.records.unshift(rec)
-      this.showToast(`兑换成功：${g.name}`, 'success')
+      // 实物商品：生成发货单，引导用户填写收货信息（虚拟券卡直接到账）
+      const ship = this.createShipment(rec)
+      if (ship) this.showToast(`兑换成功：${g.name}，请前往「物流发货」填写收货信息`, 'success')
+      else this.showToast(`兑换成功：${g.name}`, 'success')
       return rec
     },
 
@@ -743,7 +799,11 @@ export const usePlatformStore = defineStore('platform', {
       rec.status = 'released'
       this.addAuditLog('release', o.id,
         `放行${o.bizType === 'draw' ? '抽奖' : '兑换'}【${o.targetName}】${note ? '；备注：' + note : ''}`)
-      this.showToast(`已放行【${o.targetName}】`, 'success')
+      // 放行后实物才"发奖"：生成发货单并通知用户填写收货信息（冻结期间不产生发货单）
+      const ship = this.createShipment(rec)
+      this.showToast(ship
+        ? `已放行【${o.targetName}】，发货单已生成，等待用户填写收货信息`
+        : `已放行【${o.targetName}】`, 'success')
       // 抽奖放行后按记录归属业务日补计任务进度（跨日审核不串当日账，幂等防重复发奖）
       if (o.bizType === 'draw') this.settleDrawTasks(rec.date)
     },
@@ -799,6 +859,136 @@ export const usePlatformStore = defineStore('platform', {
       this.addAuditLog('revoke', o.id,
         `撤销${o.bizType === 'draw' ? '抽奖' : '兑换'}【${o.targetName}】，返还${o.frozenPoints}积分${o.stockHeld ? `、回补库存×${o.stockHeld}` : ''}${o.bizType === 'draw' ? '；该笔不计入抽奖任务进度（冻结期间暂缓，撤销后确认回退）' : ''}${note ? '；备注：' + note : ''}`)
       this.showToast(`已撤销【${o.targetName}】，积分与库存已返还`, 'info')
+    },
+
+    // ===== 实物收货 / 发货流程 =====
+    // 状态机：pending_address（待填地址）→ to_ship（待运营接单发货）→ shipped（已发货/待收货）→ received（已收货）
+    // 仅"有效"实物业务记录（正常落账 normal / 风控放行 released）生成发货单；
+    // 风控冻结中不生成（放行才发奖）、撤销作废不生成（已返还库存/积分）。
+    _isPhysicalRecord(rec) {
+      if (rec.type === 'draw') {
+        if (rec.rarity === 'none') return false
+        const prize = this.activities.find((a) => a.id === rec.activityId)
+          ?.prizes.find((p) => p.id === rec.prizeId)
+        if (prize && prize.physical !== undefined) return !!prize.physical
+        return !rec.prizeName.includes('积分') // 兜底：积分奖品为虚拟
+      }
+      const g = this.goods.find((x) => x.id === rec.goodsId)
+      if (g && g.physical !== undefined) return !!g.physical
+      return true // 兜底：商城商品默认实物
+    },
+
+    // 有效实物中奖/兑换 → 生成发货单（幂等：一条业务记录至多一张）
+    createShipment(rec) {
+      if (!rec) return null
+      if (rec.status !== 'normal' && rec.status !== 'released') return null
+      if (!this._isPhysicalRecord(rec)) return null
+      if (this.shipments.some((o) => o.recordId === rec.id)) return null
+      const isDraw = rec.type === 'draw'
+      const order = {
+        id: genId('sp'),
+        recordId: rec.id,
+        bizType: rec.type,                   // draw | redeem
+        status: 'pending_address',
+        userId: rec.userId || this.user.id,
+        userName: rec.userName || this.user.name,
+        icon: rec.icon,
+        targetName: isDraw ? rec.prizeName : rec.goodsName,
+        activityId: isDraw ? rec.activityId : null,
+        source: rec.status === 'released' ? '风控放行' : (isDraw ? '中奖' : '积分兑换'),
+        date: this.todayDate, time: nowTime(), ts: Date.now(),
+        // 用户收货信息
+        receiver: '', phone: '', region: '', address: '', addressAt: '',
+        // 运营接单 / 发货
+        shipper: '', carrier: '', trackingNo: '', shipNote: '', shippedAt: '',
+        // 用户确认收货
+        receivedAt: ''
+      }
+      this.shipments.unshift(order)
+      this.addAuditLog('ship-create', order.id,
+        `${isDraw ? '中奖' : '兑换'}实物【${order.targetName}】生成发货单，待用户填写收货信息`)
+      return order
+    },
+
+    // 用户填写 / 更新收货信息（仅本人；发货前可修改，提交后进入运营待发货队列）
+    submitShipAddress(shipmentId, form) {
+      this.syncBusinessDay()
+      const o = this.shipments.find((x) => x.id === shipmentId)
+      if (!o) return false
+      if (this.role === 'operator') {
+        this.showToast('运营视角不代用户填写收货信息，请切换到用户视角', 'warn')
+        return false
+      }
+      if (o.userId !== this.user.id) { this.showToast('只能填写自己的收货信息', 'warn'); return false }
+      if (o.status === 'shipped' || o.status === 'received') {
+        this.showToast('已发货，收货信息不可修改', 'warn')
+        return false
+      }
+      const receiver = (form.receiver || '').trim()
+      const phone = String(form.phone || '').replace(/[\s-]/g, '')
+      const region = (form.region || '').trim()
+      const address = (form.address || '').trim()
+      if (!receiver) { this.showToast('请填写收货人姓名', 'warn'); return false }
+      if (!/^1\d{10}$/.test(phone)) { this.showToast('请填写正确的 11 位手机号', 'warn'); return false }
+      if (!region) { this.showToast('请填写所在地区（省/市/区）', 'warn'); return false }
+      if (!address) { this.showToast('请填写详细收货地址', 'warn'); return false }
+      const first = o.status === 'pending_address'
+      o.receiver = receiver
+      o.phone = phone
+      o.region = region
+      o.address = address
+      o.status = 'to_ship'
+      o.addressAt = `${this.todayDate} ${nowTime()}`
+      this.addAuditLog('ship-address', o.id,
+        `${first ? '填写' : '更新'}收货信息：${receiver} ${phone.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')} ${region} ${address}`)
+      this.showToast(first ? '📮 收货信息已提交，等待运营接单发货' : '收货信息已更新', 'success')
+      return true
+    },
+
+    // 运营接单发货：填写快递公司/单号，进入待收货（仅运营、仅 to_ship 可操作，幂等防重复发货）
+    shipShipment(shipmentId, form) {
+      const o = this.shipments.find((x) => x.id === shipmentId)
+      if (!o) return false
+      if (this.role !== 'operator') {
+        this.showToast('仅运营可接单发货，请切换到运营视角', 'warn')
+        return false
+      }
+      if (o.status !== 'to_ship') {
+        this.showToast('该发货单当前状态不可发货（需用户先填写收货信息）', 'warn')
+        return false
+      }
+      const carrier = (form.carrier || '').trim()
+      const trackingNo = (form.trackingNo || '').trim()
+      if (!carrier) { this.showToast('请填写快递公司', 'warn'); return false }
+      if (!trackingNo) { this.showToast('请填写快递单号', 'warn'); return false }
+      o.carrier = carrier
+      o.trackingNo = trackingNo
+      o.shipNote = (form.note || '').trim()
+      o.shipper = this.user.name
+      o.status = 'shipped'
+      o.shippedAt = `${this.todayDate} ${nowTime()}`
+      this.addAuditLog('ship-send', o.id,
+        `接单发货【${o.targetName}】：${carrier} 单号 ${trackingNo}，收件人 ${o.receiver}（${o.region} ${o.address}）${o.shipNote ? '；备注：' + o.shipNote : ''}`)
+      this.showToast(`📦 已接单发货：${o.targetName}（${carrier} ${trackingNo}）`, 'success')
+      return true
+    },
+
+    // 用户确认收货（仅本人、仅已发货可确认）
+    receiveShipment(shipmentId) {
+      const o = this.shipments.find((x) => x.id === shipmentId)
+      if (!o) return false
+      if (this.role === 'operator') {
+        this.showToast('由用户本人确认收货，请切换到用户视角', 'warn')
+        return false
+      }
+      if (o.userId !== this.user.id) { this.showToast('只能确认自己的发货单', 'warn'); return false }
+      if (o.status !== 'shipped') { this.showToast('仅已发货的订单可确认收货', 'warn'); return false }
+      o.status = 'received'
+      o.receivedAt = `${this.todayDate} ${nowTime()}`
+      this.addAuditLog('ship-receive', o.id,
+        `确认收货【${o.targetName}】（${o.carrier} ${o.trackingNo}），订单完成`)
+      this.showToast(`✅ 已确认收货：${o.targetName}`, 'success')
+      return true
     },
 
     // 更新风控规则（仅运营）
@@ -1312,6 +1502,8 @@ export const usePlatformStore = defineStore('platform', {
           remain: p.stock || 10,
           frozen: 0,
           weight: p.weight || 10,
+          // 实物/虚拟：显式指定优先，兜底按奖品名（含"积分"视为虚拟积分奖品）
+          physical: p.physical !== undefined ? !!p.physical : !p.name.includes('积分'),
           emoji: p.emoji || '🎁'
         }))
       }
@@ -1504,23 +1696,61 @@ export const usePlatformStore = defineStore('platform', {
         createdAt: d1, time: '18:06:40', ts: todayAt(18, 6) - DAY, reviewedAt: ''
       })
 
-      // —— 7) 历史业务日对账差异（演示）：上一业务日一笔 5 积分任务领奖台账已落、积分与流水漏记 ——
+      // —— 7) 实物发货流程种子 ——
+      // 7a) 已放行实物（seed-r4：500元购物卡）→ 用户已填地址、运营已接单发货、待用户确认收货
+      this.shipments.push({
+        id: 'seed-sp1', recordId: 'seed-r4', bizType: 'draw', status: 'shipped',
+        userId: uid, userName: uname, icon: '💳', targetName: '500元购物卡',
+        activityId: 'act-1', source: '风控放行',
+        date: this.todayDate, time: '09:12:00', ts: todayAt(9, 12),
+        receiver: '李运营', phone: '138****0001', region: '上海市浦东新区',
+        address: '张江高科技园区博云路2号', addressAt: `${this.todayDate} 09:20:11`,
+        shipper: '运营小张', carrier: '顺丰速运', trackingNo: 'SF1024888661',
+        shipNote: '内含购物卡，请当面验货', shippedAt: `${this.todayDate} 11:05:40`,
+        receivedAt: ''
+      })
+      // 7b) 正常兑换实物（定制帆布袋 150 积分）→ 待用户填写收货信息
+      const g3 = this.goods.find((g) => g.id === 'g3')
+      if (g3) { g3.remain -= 1 }
+      this.points -= 150
+      const rec7 = {
+        id: 'seed-r7', type: 'redeem', status: 'normal',
+        date: this.todayDate, time: '13:26:55', ts: todayAt(13, 26),
+        goodsId: 'g3', goodsName: '定制帆布袋', icon: '👜'
+      }
+      this.records.push(rec7)
+      this.pointRecords.unshift({
+        id: 'seed-pr7', date: this.todayDate, time: '13:26:55', ts: todayAt(13, 26),
+        delta: -150, balance: this.points, note: '兑换：定制帆布袋', kind: 'normal'
+      })
+      this.shipments.push({
+        id: 'seed-sp2', recordId: 'seed-r7', bizType: 'redeem', status: 'pending_address',
+        userId: uid, userName: uname, icon: '👜', targetName: '定制帆布袋',
+        activityId: null, source: '积分兑换',
+        date: this.todayDate, time: '13:26:55', ts: todayAt(13, 26),
+        receiver: '', phone: '', region: '', address: '', addressAt: '',
+        shipper: '', carrier: '', trackingNo: '', shipNote: '', shippedAt: '', receivedAt: ''
+      })
+
+      // —— 8) 历史业务日对账差异（演示）：上一业务日一笔 5 积分任务领奖台账已落、积分与流水漏记 ——
       // 对账应在上一业务日差异单中检出（P1 净额 +5、P2 台账缺笔），运营复核后按跨日补偿补记，原始记录保留
       this.taskClaims.push({
         id: 'seed-tc-gap', taskId: 't-checkin', taskLabel: '每日签到（历史漏记）', reward: 5,
         bizDate: d1, grantDate: d1, time: '18:40:00', ts: todayAt(18, 40) - DAY, source: 'manual-gap'
       })
 
-      // 初始可用积分 255（含一笔历史漏记：业务台账 +5 未入账）：种子实时扣减 -210
-      // （在途冻结 -10/-200；已撤销兑换 -80 已 +80 返还，净 0），起点补 465 → 255。
-      // 种子流水合计 -200，rebalanceSeedPoints 倒推重放后链连续、最新快照 255。
+      // 初始可用积分 255（含一笔历史漏记：业务台账 +5 未入账）：种子实时扣减 -360
+      // （在途冻结 -10/-200；已撤销兑换 -80 已 +80 返还，净 0；实物帆布袋兑换 -150），起点补 615 → 255。
+      // 种子流水合计 -350，rebalanceSeedPoints 倒推重放后链连续、最新快照 255。
       // 对账检出并补偿历史漏记 +5 后余额 260，与补偿流水链配平。
-      this.points += 465
+      this.points += 615
       // 修正流水余额快照（append-only，重排后顺序写入当时余额）
       this.rebalanceSeedPoints()
 
       // 审计日志（最新在前）
       this.auditLogs = [
+        { id: 'seed-log9', action: 'ship-create', actionLabel: '生成发货单', orderId: 'seed-sp2', operator: uname, detail: '兑换实物【定制帆布袋】生成发货单，待用户填写收货信息', date: this.todayDate, time: '13:26:55' },
+        { id: 'seed-log8', action: 'ship-send', actionLabel: '运营发货', orderId: 'seed-sp1', operator: '运营小张', detail: '接单发货【500元购物卡】：顺丰速运 单号 SF1024888661，收件人 李运营（上海市浦东新区 张江高科技园区博云路2号）；备注：内含购物卡，请当面验货', date: this.todayDate, time: '11:05:40' },
         { id: 'seed-log5', action: 'revoke', actionLabel: '审核撤销', orderId: 'seed-rk5', operator: '系统', detail: '撤销兑换【视频会员周卡】，返还80积分、回补库存×1；备注：命中短时连续兑换规则，自动拦截，用户未申诉。', date: this.todayDate, time: '08:35:00' },
         { id: 'seed-log4', action: 'release', actionLabel: '审核放行', orderId: 'seed-rk4', operator: '运营小张', detail: '放行抽奖【500元购物卡】；备注：核实为正常用户，放行并发奖。', date: this.todayDate, time: '09:10:12' },
         { id: 'seed-log3', action: 'appeal', actionLabel: '用户申诉', orderId: 'seed-rk2', operator: uname, detail: '用户提交申诉：本人正常参与活动中奖，未使用任何外挂，请求放行。', date: this.todayDate, time: '09:45:30' },

@@ -133,6 +133,10 @@
           <b>{{ o.status === 'released' ? '✅ 放行结论' : '❌ 撤销结论' }}：</b>{{ o.reviewNote || '（无备注）' }}
           <span class="review-meta">{{ o.reviewer }} · {{ o.reviewedAt }}</span>
         </div>
+        <!-- 运营：放行后实物发货提示 -->
+        <div v-if="store.isOperator && o.status === 'released' && shipOf(o.recordId)" class="ship-hint">
+          📦 实物发货单：{{ shipMetaText(shipOf(o.recordId).status) }}（运营可前往「物流发货」处理待发货订单）
+        </div>
 
         <!-- 用户操作区 -->
         <div v-if="!store.isOperator && mine(o)" class="o-actions user">
@@ -141,7 +145,9 @@
             <button class="btn-appeal" @click="submitAppeal(o)">📨 提交申诉</button>
           </template>
           <span v-else-if="o.status === 'appealed'" class="waiting">⏳ 申诉审核中，请耐心等待运营处理</span>
-          <span v-else-if="o.status === 'released'" class="done-txt ok">已放行，奖品/积分已到账</span>
+          <span v-else-if="o.status === 'released'" class="done-txt ok">
+            已放行，奖品/积分已到账<span v-if="shipOf(o.recordId)">；实物发货单已生成，可在「物流发货」{{ shipOf(o.recordId).status === 'pending_address' ? '填写收货信息' : shipOf(o.recordId).status === 'shipped' ? '确认收货' : '查看进度' }}</span>
+          </span>
           <span v-else class="done-txt bad">已撤销，冻结积分与库存已返还</span>
         </div>
         <div v-else-if="!store.isOperator && !mine(o)" class="o-actions user">
@@ -173,7 +179,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue'
-import { usePlatformStore, RISK_STATUS } from '@/store/platform'
+import { usePlatformStore, RISK_STATUS, SHIP_STATUS } from '@/store/platform'
 import { PRIZE_RARITY } from '@/mock/data'
 
 const store = usePlatformStore()
@@ -238,6 +244,8 @@ const frozenStockCount = computed(() =>
   pendingOrders.value.reduce((s, o) => s + (o.stockHeld || 0), 0))
 
 const mine = (o) => o.userId === store.user.id
+const shipOf = (id) => store.shipmentOfRecord(id)
+const shipMetaText = (s) => SHIP_STATUS[s]?.label || s
 const statusMeta = (s) => RISK_STATUS[s] || { label: s, tone: '' }
 const rarityLabel = (r) => PRIZE_RARITY[r]?.label || r
 const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
@@ -370,6 +378,11 @@ function doRevoke(o) {
 .review-box.revoked { background: rgba(144,164,174,0.1); border: 1px solid rgba(144,164,174,0.25); color: #cdd6dd; }
 .review-meta { display: block; font-size: 10px; color: #84a094; margin-top: 3px; }
 .review-box.revoked .review-meta { color: #90a4ae; }
+.ship-hint {
+  margin-top: 9px; font-size: 11px; color: #9db0d0; line-height: 1.5;
+  background: rgba(76,175,80,0.07); border: 1px dashed rgba(76,175,80,0.3);
+  border-radius: 8px; padding: 7px 10px;
+}
 
 .o-actions { display: flex; align-items: center; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
 .o-actions input {

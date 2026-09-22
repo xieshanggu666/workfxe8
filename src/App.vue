@@ -13,6 +13,7 @@
           {{ t.label }}
           <i v-if="t.key === 'risk' && store.pendingRiskCount" class="tab-badge">{{ store.pendingRiskCount }}</i>
           <i v-else-if="t.key === 'recon' && store.reconOpenCount" class="tab-badge recon">{{ store.reconOpenCount }}</i>
+          <i v-else-if="t.key === 'shipping' && shipBadge" class="tab-badge ship">{{ shipBadge }}</i>
         </button>
       </nav>
       <div class="user">
@@ -40,6 +41,7 @@
       </div>
 
       <PointsCenter v-else-if="tab === 'points'" />
+      <ShipCenter v-else-if="tab === 'shipping'" />
       <RiskCenter v-else-if="tab === 'risk'" />
       <ReconcileView v-else-if="tab === 'recon'" />
       <DashboardView v-else-if="tab === 'dashboard'" />
@@ -62,6 +64,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { usePlatformStore } from '@/store/platform'
 import ActivityView from '@/components/ActivityView.vue'
 import PointsCenter from '@/components/PointsCenter.vue'
+import ShipCenter from '@/components/ShipCenter.vue'
 import RiskCenter from '@/components/RiskCenter.vue'
 import ReconcileView from '@/components/ReconcileView.vue'
 import DashboardView from '@/components/DashboardView.vue'
@@ -77,6 +80,7 @@ const currentActivityId = ref('act-1')
 const tabs = [
   { key: 'home', label: '🎡 抽奖活动' },
   { key: 'points', label: '🪙 积分中心' },
+  { key: 'shipping', label: '📦 物流发货' },
   { key: 'risk', label: '🛡️ 风控申诉' },
   { key: 'recon', label: '🧮 积分库存对账' },
   { key: 'dashboard', label: '📊 运营看板' },
@@ -85,6 +89,10 @@ const tabs = [
 
 const currentActivity = computed(() => store.activities.find((a) => a.id === currentActivityId.value))
 const activeExists = computed(() => store.activities.some((a) => a.status === 'running'))
+
+// 物流 Tab 角标：用户看待办（待填地址/待收货），运营看待接单发货
+const shipBadge = computed(() =>
+  store.role === 'operator' ? store.pendingShipCount : store.myShipTodoCount)
 
 // 统一业务日切换：页面常开时定时器轮询；页面从后台重新可见时立即检查
 let dayTimer = null
@@ -162,6 +170,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 6px rgba(255,82,82,0.5);
 }
 .tab-badge.recon { background: #00897b; box-shadow: 0 2px 6px rgba(0,137,123,0.5); }
+.tab-badge.ship { background: #43a047; box-shadow: 0 2px 6px rgba(67,160,71,0.5); }
 
 .content { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .activity-switch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }

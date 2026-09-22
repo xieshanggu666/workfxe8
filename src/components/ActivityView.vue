@@ -10,6 +10,7 @@
           <div class="p-info">
             <div class="p-name">{{ p.name }}
               <span class="p-rarity" :style="{ background: rarityColor(p.rarity) }">{{ rarityLabel(p.rarity) }}</span>
+              <span v-if="p.rarity !== 'none'" class="p-kind" :class="isPhysical(p) ? 'physical' : 'virtual'">{{ isPhysical(p) ? '实物' : '虚拟' }}</span>
             </div>
             <div class="p-stock">库存{{ p.remain }}/<s>{{ p.stock }}</s></div>
           </div>
@@ -78,6 +79,8 @@ const frozenResult = ref(null)
 // props.activity 直接来自 store，库存实时
 const rarityLabel = (r) => PRIZE_RARITY[r]?.label || r
 const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
+// 实物/虚拟：显式 physical 标记优先，兜底按奖品名（积分奖品为虚拟）
+const isPhysical = (p) => (p.physical !== undefined ? !!p.physical : !p.name.includes('积分'))
 
 const canDraw = computed(() => {
   const act = props.activity
@@ -174,6 +177,9 @@ watch(() => props.activity.id, () => {
 .p-info { min-width: 0; }
 .p-name { font-size: 12px; color: #dbe4f3; display: flex; align-items: center; gap: 5px; }
 .p-rarity { font-size: 9px; color: #fff; padding: 1px 5px; border-radius: 3px; }
+.p-kind { font-size: 9px; padding: 1px 5px; border-radius: 3px; }
+.p-kind.physical { background: rgba(76,175,80,0.2); color: #a5d6a7; }
+.p-kind.virtual { background: rgba(120,160,220,0.14); color: #8ba2c8; }
 .p-stock { font-size: 10px; color: #6f84ab; margin-top: 2px; }
 
 .sub-none { color: #8a9baf; }

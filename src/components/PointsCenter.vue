@@ -24,6 +24,13 @@
       <span class="re-go">去处理 ›</span>
     </div>
 
+    <!-- 实物收货待办快捷入口 -->
+    <div v-if="store.myShipTodoCount" class="ship-entry" @click="store.gotoTab('shipping')">
+      <span>📦 你有 <b>{{ store.myShipTodoCount }}</b> 件实物待处理：
+        待填地址 {{ store.shipmentStats.pendingAddress }} 件 · 待确认收货 {{ store.shipmentStats.shipped }} 件</span>
+      <span class="re-go">去填写 / 查看 ›</span>
+    </div>
+
     <div class="points-grid">
       <!-- 任务列表 -->
       <div class="card">
@@ -69,7 +76,9 @@
           <div v-for="g in store.goods" :key="g.id" class="goods">
             <span class="g-icon">{{ g.icon }}</span>
             <div class="g-info">
-              <div class="g-name">{{ g.name }}</div>
+              <div class="g-name">{{ g.name }}
+                <i class="g-kind" :class="g.physical ? 'physical' : 'virtual'">{{ g.physical ? '实物·需收货' : '虚拟·即到账' }}</i>
+              </div>
               <div class="g-stock">
                 可兑 {{ g.remain }}
                 <span v-if="g.frozen" class="g-frozen">· 🧊 预占 {{ g.frozen }}</span>
@@ -166,6 +175,15 @@ const drawState = (taskId) => store.drawTaskState(taskId)
 .risk-entry .re-go { color: #ffe0b2; font-weight: 700; }
 .risk-entry:hover { background: rgba(255,152,0,0.16); }
 
+.ship-entry {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(76,175,80,0.1); border: 1px solid rgba(76,175,80,0.35);
+  border-radius: 12px; padding: 12px 16px; font-size: 13px; color: #b9e3bd; cursor: pointer;
+}
+.ship-entry b { color: #8be09a; font-size: 15px; }
+.ship-entry .re-go { color: #c8e6c9; font-weight: 700; }
+.ship-entry:hover { background: rgba(76,175,80,0.16); }
+
 .points-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 860px) { .points-grid { grid-template-columns: 1fr; } .span2 { grid-column: auto !important; } .card { grid-column: auto !important; } }
 .card {
@@ -219,6 +237,9 @@ const drawState = (taskId) => store.drawTaskState(taskId)
 .g-icon { font-size: 22px; }
 .g-info { flex: 1; min-width: 0; }
 .g-name { font-size: 13px; color: #e8eefb; }
+.g-kind { font-style: normal; font-size: 9px; padding: 1px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
+.g-kind.physical { background: rgba(76,175,80,0.16); color: #7ef0c9; }
+.g-kind.virtual { background: rgba(120,160,220,0.12); color: #8ba2c8; }
 .g-stock { font-size: 10px; color: #6f84ab; }
 .g-frozen { color: #81d4fa; }
 .g-btns { display: flex; align-items: center; gap: 8px; }

@@ -42,12 +42,12 @@ export const ACTIVITIES = [
     startAt: '2026-09-01',
     endAt: '2026-10-01',
     prizes: [
-      { id: 'p1', name: 'iPhone 16', rarity: 'legendary', stock: 3, remain: 3, weight: 1, emoji: '📱' },
-      { id: 'p2', name: '500元购物卡', rarity: 'epic', stock: 20, remain: 20, weight: 4, emoji: '💳' },
-      { id: 'p3', name: '定制保温杯', rarity: 'rare', stock: 150, remain: 150, weight: 15, emoji: '☕' },
-      { id: 'p4', name: '30积分', rarity: 'rare', stock: 500, remain: 500, weight: 30, emoji: '🪙' },
-      { id: 'p5', name: '5积分', rarity: 'common', stock: 2000, remain: 2000, weight: 50, emoji: '✨' },
-      { id: 'p6', name: '谢谢参与', rarity: 'none', stock: 99999, remain: 99999, weight: 100, emoji: '🤝' }
+      { id: 'p1', name: 'iPhone 16', rarity: 'legendary', stock: 3, remain: 3, weight: 1, emoji: '📱', physical: true },
+      { id: 'p2', name: '500元购物卡', rarity: 'epic', stock: 20, remain: 20, weight: 4, emoji: '💳', physical: true },
+      { id: 'p3', name: '定制保温杯', rarity: 'rare', stock: 150, remain: 150, weight: 15, emoji: '☕', physical: true },
+      { id: 'p4', name: '30积分', rarity: 'rare', stock: 500, remain: 500, weight: 30, emoji: '🪙', physical: false },
+      { id: 'p5', name: '5积分', rarity: 'common', stock: 2000, remain: 2000, weight: 50, emoji: '✨', physical: false },
+      { id: 'p6', name: '谢谢参与', rarity: 'none', stock: 99999, remain: 99999, weight: 100, emoji: '🤝', physical: false }
     ]
   },
   {
@@ -64,11 +64,11 @@ export const ACTIVITIES = [
     startAt: '2026-09-10',
     endAt: '2026-09-30',
     prizes: [
-      { id: 'p1', name: '蓝牙耳机', rarity: 'legendary', stock: 5, remain: 5, weight: 1, emoji: '🎧' },
-      { id: 'p2', name: '视频月卡', rarity: 'epic', stock: 50, remain: 50, weight: 6, emoji: '🎬' },
-      { id: 'p3', name: '20积分', rarity: 'rare', stock: 400, remain: 400, weight: 25, emoji: '🪙' },
-      { id: 'p4', name: '5积分', rarity: 'common', stock: 800, remain: 800, weight: 50, emoji: '✨' },
-      { id: 'p5', name: '谢谢参与', rarity: 'none', stock: 99999, remain: 99999, weight: 100, emoji: '🤝' }
+      { id: 'p1', name: '蓝牙耳机', rarity: 'legendary', stock: 5, remain: 5, weight: 1, emoji: '🎧', physical: true },
+      { id: 'p2', name: '视频月卡', rarity: 'epic', stock: 50, remain: 50, weight: 6, emoji: '🎬', physical: false },
+      { id: 'p3', name: '20积分', rarity: 'rare', stock: 400, remain: 400, weight: 25, emoji: '🪙', physical: false },
+      { id: 'p4', name: '5积分', rarity: 'common', stock: 800, remain: 800, weight: 50, emoji: '✨', physical: false },
+      { id: 'p5', name: '谢谢参与', rarity: 'none', stock: 99999, remain: 99999, weight: 100, emoji: '🤝', physical: false }
     ]
   }
 ]
@@ -85,13 +85,13 @@ export const TASKS = [
   { id: 't-invite', label: '邀请好友注册', reward: 50, icon: '🤝', type: 'once' }
 ]
 
-// 积分商城兑换商品
+// 积分商城兑换商品（physical: 是否需要物流发货——实物填写收货信息、运营发货；虚拟券卡直接到账）
 export const SHOP_GOODS = [
-  { id: 'g1', name: '满50减10优惠券', cost: 30, icon: '🎟️', stock: 200, remain: 200 },
-  { id: 'g2', name: '视频会员周卡', cost: 80, icon: '🎬', stock: 100, remain: 100 },
-  { id: 'g3', name: '定制帆布袋', cost: 150, icon: '👜', stock: 50, remain: 50 },
-  { id: 'g4', name: '盲盒福袋', cost: 200, icon: '🎁', stock: 30, remain: 30 },
-  { id: 'g5', name: '与牛人共进午餐', cost: 500, icon: '🍽️', stock: 5, remain: 5 }
+  { id: 'g1', name: '满50减10优惠券', cost: 30, icon: '🎟️', stock: 200, remain: 200, physical: false },
+  { id: 'g2', name: '视频会员周卡', cost: 80, icon: '🎬', stock: 100, remain: 100, physical: false },
+  { id: 'g3', name: '定制帆布袋', cost: 150, icon: '👜', stock: 50, remain: 50, physical: true },
+  { id: 'g4', name: '盲盒福袋', cost: 200, icon: '🎁', stock: 30, remain: 30, physical: true },
+  { id: 'g5', name: '与牛人共进午餐', cost: 500, icon: '🍽️', stock: 5, remain: 5, physical: false }
 ]
 
 export const DEMO_USER = {

@@ -71,6 +71,7 @@
             <span>{{ p.emoji }}</span>
             <span class="pc-name">{{ p.name }}</span>
             <i class="rarity-dot" :style="{ background: rarityColor(p.rarity) }"></i>
+            <span v-if="p.rarity !== 'none'" class="pc-kind" :class="isPhysical(p) ? 'physical' : 'virtual'">{{ isPhysical(p) ? '实物' : '虚拟' }}</span>
             <span class="pc-stock">{{ p.remain }}/{{ p.stock }}</span>
             <span v-if="p.frozen" class="pc-frozen" title="风控审核中预占">🧊{{ p.frozen }}</span>
           </div>
@@ -107,6 +108,8 @@ const form = ref({
 
 const statusLabel = (s) => ({ running: '进行中', paused: '已暂停', ended: '已结束' }[s] || s)
 const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
+// 实物/虚拟：显式 physical 标记优先，兜底按奖品名
+const isPhysical = (p) => (p.physical !== undefined ? !!p.physical : !p.name.includes('积分'))
 
 function submit() {
   const prizes = form.value.prizeText
@@ -186,6 +189,9 @@ function removeAct(id) {
   background: rgba(20,34,66,0.6); border: 1px solid; border-radius: 7px; padding: 4px 8px; font-size: 11px;
 }
 .pc-name { color: #dbe4f3; }
+.pc-kind { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-style: normal; }
+.pc-kind.physical { background: rgba(76,175,80,0.18); color: #7ef0c9; }
+.pc-kind.virtual { background: rgba(120,160,220,0.14); color: #8ba2c8; }
 .rarity-dot { width: 7px; height: 7px; border-radius: 50%; }
 .pc-stock { color: #ffc107; font-size: 10px; }
 .pc-frozen { color: #81d4fa; font-size: 10px; }

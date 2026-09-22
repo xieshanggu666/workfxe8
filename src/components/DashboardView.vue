@@ -72,6 +72,26 @@
         <div class="s-num ice">{{ store.dashboard.stockAdjCount }}</div>
         <div class="s-lab">库存校正次数</div>
       </div>
+      <div class="stat-card ship">
+        <span class="s-icon">📮</span>
+        <div class="s-num warn">{{ store.dashboard.shipPendingAddress }}</div>
+        <div class="s-lab">待填收货地址</div>
+      </div>
+      <div class="stat-card ship">
+        <span class="s-icon">📋</span>
+        <div class="s-num" style="color:#82b1ff">{{ store.dashboard.shipToShip }}</div>
+        <div class="s-lab">待运营发货</div>
+      </div>
+      <div class="stat-card ship">
+        <span class="s-icon">🚚</span>
+        <div class="s-num ok">{{ store.dashboard.shipShipped }}</div>
+        <div class="s-lab">已发货待收货</div>
+      </div>
+      <div class="stat-card ship">
+        <span class="s-icon">✅</span>
+        <div class="s-num muted">{{ store.dashboard.shipReceived }}</div>
+        <div class="s-lab">已完成收货</div>
+      </div>
     </div>
 
     <!-- 活动概览 + 库存 -->
@@ -117,6 +137,7 @@
         <span v-if="r.status==='frozen'" class="r-badge frozen">🧊 风控审核中</span>
         <span v-else-if="r.status==='released'" class="r-badge released">✅ 审核放行</span>
         <span v-else-if="r.status==='revoked'" class="r-badge revoked">❌ 已撤销</span>
+        <span v-if="shipOf(r.id)" class="r-badge ship-b" :class="shipOf(r.id).status">📦 {{ shipMeta(shipOf(r.id).status).label }}</span>
         <span class="r-time">{{ r.date }} {{ r.time }}</span>
       </div>
     </div>
@@ -124,12 +145,14 @@
 </template>
 
 <script setup>
-import { usePlatformStore } from '@/store/platform'
+import { usePlatformStore, SHIP_STATUS } from '@/store/platform'
 import { PRIZE_RARITY } from '@/mock/data'
 const store = usePlatformStore()
 const statusLabel = (s) => ({ running: '进行中', paused: '已暂停', ended: '已结束' }[s] || s)
 const rarityLabel = (r) => PRIZE_RARITY[r]?.label || r
 const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
+const shipOf = (id) => store.shipmentOfRecord(id)
+const shipMeta = (s) => SHIP_STATUS[s] || { label: s }
 </script>
 
 <style scoped>
@@ -145,10 +168,12 @@ const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
 .s-num { font-size: 26px; font-weight: 800; color: #4d8dff; margin: 6px 0 0; }
 .stat-card.risk { border-color: rgba(255,152,0,0.35); }
 .stat-card.recon { border-color: rgba(77,182,172,0.35); }
+.stat-card.ship { border-color: rgba(76,175,80,0.35); }
 .s-num.recon-n { color: #4db6ac; }
 .s-num.warn { color: #ffb74d; }
 .s-num.ice { color: #81d4fa; }
 .s-num.ok { color: #7ef0c9; }
+.s-num.muted { color: #b0bec5; }
 .s-lab { font-size: 11px; color: #8ba2c8; margin-top: 2px; }
 
 .dash-cards { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
@@ -186,6 +211,11 @@ const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
 .r-badge.frozen { background: rgba(129,212,250,0.15); color: #81d4fa; }
 .r-badge.released { background: rgba(76,175,80,0.15); color: #7ef0c9; }
 .r-badge.revoked { background: rgba(144,164,174,0.15); color: #b0bec5; }
+.r-badge.ship-b { margin-left: 2px; }
+.r-badge.ship-b.pending_address { background: rgba(255,152,0,0.15); color: #ffb74d; }
+.r-badge.ship-b.to_ship { background: rgba(66,165,245,0.15); color: #82b1ff; }
+.r-badge.ship-b.shipped { background: rgba(76,175,80,0.15); color: #7ef0c9; }
+.r-badge.ship-b.received { background: rgba(144,164,174,0.15); color: #b0bec5; }
 .rec-row {
   display: flex; align-items: center; gap: 10px; padding: 7px 0;
   border-bottom: 1px dashed rgba(120,160,220,0.1); font-size: 12px;
