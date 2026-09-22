@@ -148,6 +148,25 @@
           <span class="waiting">该单据不属于当前账号</span>
         </div>
 
+        <!-- 放行后的实物履约引导 -->
+        <div v-if="o.status === 'released' && shipOf(o)" class="ship-hint" @click="store.gotoTab('shipping')">
+          <template v-if="shipOf(o).status === 'pending_address'">
+            📮 实物已放行，请前往「📦 我的订单」填写收货信息后等待运营发货 <span class="sh-link">去填写 ›</span>
+          </template>
+          <template v-else-if="shipOf(o).status === 'shipped'">
+            🚚 商品已发货（{{ shipOf(o).expressCompany }} {{ shipOf(o).trackingNo }}），请前往「📦 我的订单」确认收货 <span class="sh-link">去确认 ›</span>
+          </template>
+          <template v-else-if="shipOf(o).status === 'received'">
+            ✅ 已确认收货，履约完成
+          </template>
+          <template v-else>
+            📦 实物履约中（{{ shipStatusLabel(shipOf(o).status) }}），可在「📦 我的订单」查看进度 <span class="sh-link">查看 ›</span>
+          </template>
+        </div>
+        <div v-else-if="store.isOperator && o.status === 'released' && shipOf(o) && shipOf(o).status !== 'received'" class="ship-hint op" @click="store.gotoTab('shipping')">
+          📦 该实物单需履约（当前：{{ shipStatusLabel(shipOf(o).status) }}），前往「📦 我的订单」运营工作台接单发货 <span class="sh-link">去发货 ›</span>
+        </div>
+
         <!-- 运营操作区 -->
         <div v-if="store.isOperator && (o.status === 'pending' || o.status === 'appealed')" class="o-actions operator">
           <input v-model="reviewDrafts[o.id]" placeholder="审核备注（可选）" />
@@ -173,7 +192,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue'
-import { usePlatformStore, RISK_STATUS } from '@/store/platform'
+import { usePlatformStore, RISK_STATUS, SHIPPING_STATUS } from '@/store/platform'
 import { PRIZE_RARITY } from '@/mock/data'
 
 const store = usePlatformStore()
@@ -241,6 +260,10 @@ const mine = (o) => o.userId === store.user.id
 const statusMeta = (s) => RISK_STATUS[s] || { label: s, tone: '' }
 const rarityLabel = (r) => PRIZE_RARITY[r]?.label || r
 const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
+
+// 审核单关联业务记录的收货履约单（仅放行的实物才有）
+const shipOf = (o) => store.shippingOrderOfRecord(o.recordId)
+const shipStatusLabel = (s) => SHIPPING_STATUS[s]?.label || s
 
 function submitAppeal(o) {
   if (store.appealRisk(o.id, appealDrafts[o.id] || '')) {
@@ -389,6 +412,15 @@ function doRevoke(o) {
 .done-txt.ok { color: #7ef0c9; }
 .done-txt.bad { color: #b0bec5; }
 
+.ship-hint {
+  margin-top: 10px; font-size: 11px; line-height: 1.5; cursor: pointer;
+  background: rgba(239,108,0,0.08); border: 1px dashed rgba(239,108,0,0.4);
+  border-radius: 8px; padding: 8px 11px; color: #ffcc80;
+}
+.ship-hint.op { background: rgba(77,182,172,0.08); border-color: rgba(77,182,172,0.4); color: #80cbc4; }
+.ship-hint:hover { filter: brightness(1.12); }
+.ship-hint .sh-link { font-weight: 700; white-space: nowrap; }
+
 .log-row {
   display: flex; align-items: center; gap: 10px; padding: 8px 0;
   border-bottom: 1px dashed rgba(120,160,220,0.1); font-size: 12px;
@@ -404,6 +436,11 @@ function doRevoke(o) {
 .l-action.config { background: rgba(171,71,188,0.16); color: #ce93d8; }
 .l-action.switch-role { background: rgba(120,160,220,0.12); color: #8ba2c8; }
 .l-action.day-rollover { background: rgba(129,212,250,0.14); color: #81d4fa; }
+.l-action.ship-create { background: rgba(239,108,0,0.14); color: #ffb74d; }
+.l-action.ship-address { background: rgba(66,165,245,0.16); color: #90caf9; }
+.l-action.ship-accept { background: rgba(92,107,192,0.18); color: #9fa8da; }
+.l-action.ship-deliver { background: rgba(38,198,218,0.16); color: #80deea; }
+.l-action.ship-receive { background: rgba(76,175,80,0.16); color: #7ef0c9; }
 .l-detail { flex: 1; color: #c6d2e6; line-height: 1.4; }
 .l-who { font-size: 11px; color: #9db0d0; flex-shrink: 0; }
 .l-time { font-size: 11px; color: #6f84ab; flex-shrink: 0; }

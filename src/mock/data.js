@@ -41,10 +41,13 @@ export const ACTIVITIES = [
     desc: '周年庆回馈老用户，转盘好礼送不停',
     startAt: '2026-09-01',
     endAt: '2026-10-01',
+// 实物/虚拟标记说明：
+//  - 奖品：needShip=true 表示实物奖品（需要收货信息与发货履约）；积分奖品/谢谢参与不传或为 false
+//  - 商品：needShip 默认按名称启发式判断（优惠券/卡券类为虚拟），也可显式配置
     prizes: [
-      { id: 'p1', name: 'iPhone 16', rarity: 'legendary', stock: 3, remain: 3, weight: 1, emoji: '📱' },
-      { id: 'p2', name: '500元购物卡', rarity: 'epic', stock: 20, remain: 20, weight: 4, emoji: '💳' },
-      { id: 'p3', name: '定制保温杯', rarity: 'rare', stock: 150, remain: 150, weight: 15, emoji: '☕' },
+      { id: 'p1', name: 'iPhone 16', rarity: 'legendary', stock: 3, remain: 3, weight: 1, emoji: '📱', needShip: true },
+      { id: 'p2', name: '500元购物卡', rarity: 'epic', stock: 20, remain: 20, weight: 4, emoji: '💳', needShip: true },
+      { id: 'p3', name: '定制保温杯', rarity: 'rare', stock: 150, remain: 150, weight: 15, emoji: '☕', needShip: true },
       { id: 'p4', name: '30积分', rarity: 'rare', stock: 500, remain: 500, weight: 30, emoji: '🪙' },
       { id: 'p5', name: '5积分', rarity: 'common', stock: 2000, remain: 2000, weight: 50, emoji: '✨' },
       { id: 'p6', name: '谢谢参与', rarity: 'none', stock: 99999, remain: 99999, weight: 100, emoji: '🤝' }
@@ -64,7 +67,7 @@ export const ACTIVITIES = [
     startAt: '2026-09-10',
     endAt: '2026-09-30',
     prizes: [
-      { id: 'p1', name: '蓝牙耳机', rarity: 'legendary', stock: 5, remain: 5, weight: 1, emoji: '🎧' },
+      { id: 'p1', name: '蓝牙耳机', rarity: 'legendary', stock: 5, remain: 5, weight: 1, emoji: '🎧', needShip: true },
       { id: 'p2', name: '视频月卡', rarity: 'epic', stock: 50, remain: 50, weight: 6, emoji: '🎬' },
       { id: 'p3', name: '20积分', rarity: 'rare', stock: 400, remain: 400, weight: 25, emoji: '🪙' },
       { id: 'p4', name: '5积分', rarity: 'common', stock: 800, remain: 800, weight: 50, emoji: '✨' },
@@ -85,13 +88,13 @@ export const TASKS = [
   { id: 't-invite', label: '邀请好友注册', reward: 50, icon: '🤝', type: 'once' }
 ]
 
-// 积分商城兑换商品
+// 积分商城兑换商品（needShip：true 实物需发货；false 虚拟券卡即时到账，不生成收货单）
 export const SHOP_GOODS = [
-  { id: 'g1', name: '满50减10优惠券', cost: 30, icon: '🎟️', stock: 200, remain: 200 },
-  { id: 'g2', name: '视频会员周卡', cost: 80, icon: '🎬', stock: 100, remain: 100 },
-  { id: 'g3', name: '定制帆布袋', cost: 150, icon: '👜', stock: 50, remain: 50 },
-  { id: 'g4', name: '盲盒福袋', cost: 200, icon: '🎁', stock: 30, remain: 30 },
-  { id: 'g5', name: '与牛人共进午餐', cost: 500, icon: '🍽️', stock: 5, remain: 5 }
+  { id: 'g1', name: '满50减10优惠券', cost: 30, icon: '🎟️', stock: 200, remain: 200, needShip: false },
+  { id: 'g2', name: '视频会员周卡', cost: 80, icon: '🎬', stock: 100, remain: 100, needShip: false },
+  { id: 'g3', name: '定制帆布袋', cost: 150, icon: '👜', stock: 50, remain: 50, needShip: true },
+  { id: 'g4', name: '盲盒福袋', cost: 200, icon: '🎁', stock: 30, remain: 30, needShip: true },
+  { id: 'g5', name: '与牛人共进午餐', cost: 500, icon: '🍽️', stock: 5, remain: 5, needShip: false }
 ]
 
 export const DEMO_USER = {

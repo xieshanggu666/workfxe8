@@ -24,6 +24,12 @@
       <span class="re-go">去处理 ›</span>
     </div>
 
+    <!-- 待填收货信息快捷入口 -->
+    <div v-if="store.pendingAddressCount" class="ship-entry" @click="store.gotoTab('shipping')">
+      <span>📦 你有 <b>{{ store.pendingAddressCount }}</b> 个实物奖品/商品待填写收货信息，提交后运营才能发货</span>
+      <span class="re-go">去填写 ›</span>
+    </div>
+
     <div class="points-grid">
       <!-- 任务列表 -->
       <div class="card">
@@ -165,6 +171,15 @@ const drawState = (taskId) => store.drawTaskState(taskId)
 .risk-entry b { color: #ffb74d; font-size: 15px; }
 .risk-entry .re-go { color: #ffe0b2; font-weight: 700; }
 .risk-entry:hover { background: rgba(255,152,0,0.16); }
+
+.ship-entry {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(239,108,0,0.1); border: 1px solid rgba(239,108,0,0.35);
+  border-radius: 12px; padding: 12px 16px; font-size: 13px; color: #ffcc80; cursor: pointer;
+}
+.ship-entry b { color: #ffb74d; font-size: 15px; }
+.ship-entry .re-go { color: #ffe0b2; font-weight: 700; }
+.ship-entry:hover { background: rgba(239,108,0,0.16); }
 
 .points-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 860px) { .points-grid { grid-template-columns: 1fr; } .span2 { grid-column: auto !important; } .card { grid-column: auto !important; } }

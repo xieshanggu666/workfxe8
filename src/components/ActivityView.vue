@@ -34,6 +34,14 @@
         <button class="fz-btn ghost" @click="frozenResult = null">知道了</button>
       </div>
 
+      <!-- 实物中奖：引导填写收货信息 -->
+      <div v-else-if="winShip" class="win-ship-box">
+        <div class="ws-icon">🎁</div>
+        <div class="ws-title">恭喜获得实物奖品：{{ winShip.targetName }}</div>
+        <div class="ws-desc">中奖奖品需要邮寄，请填写收货人、手机号与地址，运营接单后将尽快为你发货。</div>
+        <button class="ws-btn" @click="goShipping">📮 去填写收货信息</button>
+      </div>
+
       <!-- 转盘 -->
       <LuckWheel
         v-else-if="activity.type === 'wheel'"
@@ -73,6 +81,12 @@ const store = usePlatformStore()
 const wheelRef = ref(null)
 const scratchResult = ref(null)
 const frozenResult = ref(null)
+// 最近一次抽中的实物奖品对应收货单（引导填写收货信息）
+const winShip = computed(() => {
+  if (!lastWinRec.value) return null
+  return store.shippingOrderOfRecord(lastWinRec.value.id)
+})
+const lastWinRec = ref(null)
 
 // 用副本活动（其 prizes 指针共享 store 库存）
 // props.activity 直接来自 store，库存实时
@@ -120,9 +134,11 @@ function onDraw() {
   // 命中风控：不揭晓奖品，展示审核提示
   if (rec.status === 'frozen') {
     frozenResult.value = rec
+    lastWinRec.value = null
     return
   }
   // 正常抽奖：播放动画
+  lastWinRec.value = rec
   if (props.activity.type === 'wheel') {
     wheelRef.value?.spin()
   } else {
@@ -133,11 +149,15 @@ function onDraw() {
 function goAppeal() {
   store.gotoTab('risk')
 }
+function goShipping() {
+  store.gotoTab('shipping')
+}
 
 // 活动切换时清空刮卡结果
 watch(() => props.activity.id, () => {
   scratchResult.value = null
   frozenResult.value = null
+  lastWinRec.value = null
 })
 </script>
 
@@ -217,4 +237,17 @@ watch(() => props.activity.id, () => {
 }
 .fz-btn.ghost { background: transparent; border: 1px solid rgba(120,160,220,0.4); color: #aebadd; }
 .frozen-sub { color: #81d4fa; }
+
+.win-ship-box {
+  margin: 12px auto 0; max-width: 320px; text-align: center;
+  background: rgba(77,182,172,0.08); border: 1px dashed rgba(77,182,172,0.5);
+  border-radius: 14px; padding: 20px 18px;
+}
+.ws-icon { font-size: 40px; }
+.ws-title { font-size: 14px; font-weight: 700; color: #80cbc4; margin-top: 8px; }
+.ws-desc { font-size: 11px; color: #b0bcd4; line-height: 1.6; margin: 8px 0 14px; }
+.ws-btn {
+  background: linear-gradient(135deg,#26c6da,#00897b); color: #fff; border: none;
+  border-radius: 18px; padding: 8px 22px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
 </style>

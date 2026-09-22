@@ -72,6 +72,21 @@
         <div class="s-num ice">{{ store.dashboard.stockAdjCount }}</div>
         <div class="s-lab">库存校正次数</div>
       </div>
+      <div class="stat-card ship">
+        <span class="s-icon">🏷️</span>
+        <div class="s-num warn">{{ store.dashboard.shipPending }}</div>
+        <div class="s-lab">履约待处理</div>
+      </div>
+      <div class="stat-card ship">
+        <span class="s-icon">🚚</span>
+        <div class="s-num ice">{{ store.dashboard.shipShipped }}</div>
+        <div class="s-lab">已发货待收货</div>
+      </div>
+      <div class="stat-card ship">
+        <span class="s-icon">✅</span>
+        <div class="s-num ok">{{ store.dashboard.shipReceived }}</div>
+        <div class="s-lab">已确认收货</div>
+      </div>
     </div>
 
     <!-- 活动概览 + 库存 -->
@@ -117,6 +132,7 @@
         <span v-if="r.status==='frozen'" class="r-badge frozen">🧊 风控审核中</span>
         <span v-else-if="r.status==='released'" class="r-badge released">✅ 审核放行</span>
         <span v-else-if="r.status==='revoked'" class="r-badge revoked">❌ 已撤销</span>
+        <span v-if="shipBadge(r)" class="r-badge ship" :class="shipBadge(r).status">{{ shipBadge(r).text }}</span>
         <span class="r-time">{{ r.date }} {{ r.time }}</span>
       </div>
     </div>
@@ -130,6 +146,18 @@ const store = usePlatformStore()
 const statusLabel = (s) => ({ running: '进行中', paused: '已暂停', ended: '已结束' }[s] || s)
 const rarityLabel = (r) => PRIZE_RARITY[r]?.label || r
 const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
+// 业务记录关联的收货履约单状态角标（仅实物）
+const SHIP_BADGE = {
+  pending_address: { text: '📮 待填地址', status: 'pending_address' },
+  pending_ship: { text: '🏷️ 待接单', status: 'pending_ship' },
+  accepted: { text: '📦 备货中', status: 'accepted' },
+  shipped: { text: '🚚 待收货', status: 'shipped' },
+  received: { text: '✅ 已收货', status: 'received' }
+}
+const shipBadge = (r) => {
+  const o = store.shippingOrderOfRecord(r.id)
+  return o ? SHIP_BADGE[o.status] : null
+}
 </script>
 
 <style scoped>
@@ -145,6 +173,7 @@ const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
 .s-num { font-size: 26px; font-weight: 800; color: #4d8dff; margin: 6px 0 0; }
 .stat-card.risk { border-color: rgba(255,152,0,0.35); }
 .stat-card.recon { border-color: rgba(77,182,172,0.35); }
+.stat-card.ship { border-color: rgba(239,108,0,0.35); }
 .s-num.recon-n { color: #4db6ac; }
 .s-num.warn { color: #ffb74d; }
 .s-num.ice { color: #81d4fa; }
@@ -186,6 +215,11 @@ const rarityColor = (r) => PRIZE_RARITY[r]?.color || '#777'
 .r-badge.frozen { background: rgba(129,212,250,0.15); color: #81d4fa; }
 .r-badge.released { background: rgba(76,175,80,0.15); color: #7ef0c9; }
 .r-badge.revoked { background: rgba(144,164,174,0.15); color: #b0bec5; }
+.r-badge.ship.pending_address { background: rgba(255,152,0,0.15); color: #ffb74d; }
+.r-badge.ship.pending_ship { background: rgba(66,165,245,0.15); color: #90caf9; }
+.r-badge.ship.accepted { background: rgba(92,107,192,0.18); color: #9fa8da; }
+.r-badge.ship.shipped { background: rgba(38,198,218,0.15); color: #80deea; }
+.r-badge.ship.received { background: rgba(76,175,80,0.15); color: #7ef0c9; }
 .rec-row {
   display: flex; align-items: center; gap: 10px; padding: 7px 0;
   border-bottom: 1px dashed rgba(120,160,220,0.1); font-size: 12px;

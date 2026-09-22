@@ -13,6 +13,7 @@
           {{ t.label }}
           <i v-if="t.key === 'risk' && store.pendingRiskCount" class="tab-badge">{{ store.pendingRiskCount }}</i>
           <i v-else-if="t.key === 'recon' && store.reconOpenCount" class="tab-badge recon">{{ store.reconOpenCount }}</i>
+          <i v-else-if="t.key === 'shipping' && shipBadge" class="tab-badge ship">{{ shipBadge }}</i>
         </button>
       </nav>
       <div class="user">
@@ -41,6 +42,7 @@
 
       <PointsCenter v-else-if="tab === 'points'" />
       <RiskCenter v-else-if="tab === 'risk'" />
+      <ShippingCenter v-else-if="tab === 'shipping'" />
       <ReconcileView v-else-if="tab === 'recon'" />
       <DashboardView v-else-if="tab === 'dashboard'" />
       <AdminView v-else-if="tab === 'admin'" />
@@ -63,6 +65,7 @@ import { usePlatformStore } from '@/store/platform'
 import ActivityView from '@/components/ActivityView.vue'
 import PointsCenter from '@/components/PointsCenter.vue'
 import RiskCenter from '@/components/RiskCenter.vue'
+import ShippingCenter from '@/components/ShippingCenter.vue'
 import ReconcileView from '@/components/ReconcileView.vue'
 import DashboardView from '@/components/DashboardView.vue'
 import AdminView from '@/components/AdminView.vue'
@@ -74,14 +77,19 @@ const tab = computed({
 })
 const currentActivityId = ref('act-1')
 
-const tabs = [
+const tabs = computed(() => [
   { key: 'home', label: '🎡 抽奖活动' },
   { key: 'points', label: '🪙 积分中心' },
   { key: 'risk', label: '🛡️ 风控申诉' },
+  { key: 'shipping', label: store.role === 'operator' ? '📦 订单发货' : '📦 我的订单' },
   { key: 'recon', label: '🧮 积分库存对账' },
   { key: 'dashboard', label: '📊 运营看板' },
   { key: 'admin', label: '🎛️ 活动管理' }
-]
+])
+
+// 履约角标：用户视角看待填地址单数；运营视角看待接单/备货单数
+const shipBadge = computed(() =>
+  store.role === 'operator' ? store.operatorShippingTodo : store.pendingAddressCount)
 
 const currentActivity = computed(() => store.activities.find((a) => a.id === currentActivityId.value))
 const activeExists = computed(() => store.activities.some((a) => a.status === 'running'))
@@ -162,6 +170,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 6px rgba(255,82,82,0.5);
 }
 .tab-badge.recon { background: #00897b; box-shadow: 0 2px 6px rgba(0,137,123,0.5); }
+.tab-badge.ship { background: #ef6c00; box-shadow: 0 2px 6px rgba(239,108,0,0.5); }
 
 .content { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .activity-switch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
